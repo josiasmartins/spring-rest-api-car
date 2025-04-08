@@ -1,5 +1,7 @@
 package com.techbuzzblogs.rest.producer.controller;
 
+import com.techbuzzblogs.rest.producer.annotations.VerifyRoles;
+import com.techbuzzblogs.rest.producer.enums.UserRole;
 import com.techbuzzblogs.rest.producer.models.Car;
 
 import java.util.ArrayList;
@@ -28,6 +30,7 @@ public class CarController {
     }
 
     @PostMapping("/create")
+    @VerifyRoles({ UserRole.APPROVER })
     @ResponseStatus(HttpStatus.CREATED)
     public Car createCar(@RequestBody CarDTO body) {
 //        listCar.add(body);
