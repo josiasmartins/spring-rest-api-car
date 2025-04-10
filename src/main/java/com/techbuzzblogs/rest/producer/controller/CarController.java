@@ -66,43 +66,72 @@ public class CarController {
 
     @GetMapping
     @ResponseStatus(HttpStatus.OK)
-    public List<Car> listCarsDynamicSorting(
+    public Page<Car> listCarsDynamicSorting(
             @RequestParam Map<String, String> sortParams,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        // Optional: só para testes
         this.seedMockData();
 
-        List<Sort.Order> orders = new ArrayList<>();
-
-        // Campos válidos da entidade
-        Set<String> validFields = Arrays.stream(Car.class.getDeclaredFields())
-                .map(Field::getName)
-                .collect(Collectors.toSet());
-
-        // MANTÉM a ordem de inserção dos parâmetros
-        Map<String, String> orderedParams = new LinkedHashMap<>(sortParams);
-
-        for (Map.Entry<String, String> entry : orderedParams.entrySet()) {
-            String field = entry.getKey();
-            String direction = entry.getValue();
-
-            if (validFields.contains(field)) {
-                if ("ASC".equalsIgnoreCase(direction)) {
-                    orders.add(Sort.Order.asc(field));
-                } else if ("DESC".equalsIgnoreCase(direction)) {
-                    orders.add(Sort.Order.desc(field));
-                }
-            }
-        }
+        List<Sort.Order> orders = sortParams.entrySet().stream()
+                .filter(e -> isValidField(Car.class, e.getKey()))
+                .map(e -> "desc".equalsIgnoreCase(e.getValue())
+                        ? Sort.Order.desc(e.getKey())
+                        : Sort.Order.asc(e.getKey()))
+                .collect(Collectors.toList());
 
         Pageable pageable = orders.isEmpty()
                 ? PageRequest.of(page, size)
                 : PageRequest.of(page, size, Sort.by(orders));
 
-        return carRepository.findAll(pageable).get().collect(Collectors.toList());
+        return carRepository.findAll(pageable);
     }
+
+    private boolean isValidField(Class<?> clazz, String fieldName) {
+        return Arrays.stream(clazz.getDeclaredFields())
+                .anyMatch(f -> f.getName().equals(fieldName));
+    }
+
+
+//    @GetMapping
+//    @ResponseStatus(HttpStatus.OK)
+//    public List<Car> listCarsDynamicSorting(
+//            @RequestParam Map<String, String> sortParams,
+//            @RequestParam(defaultValue = "0") int page,
+//            @RequestParam(defaultValue = "10") int size
+//    ) {
+//        // Optional: só para testes
+//        this.seedMockData();
+//
+//        List<Sort.Order> orders = new ArrayList<>();
+//
+//        // Campos válidos da entidade
+//        Set<String> validFields = Arrays.stream(Car.class.getDeclaredFields())
+//                .map(Field::getName)
+//                .collect(Collectors.toSet());
+//
+//        // MANTÉM a ordem de inserção dos parâmetros
+//        Map<String, String> orderedParams = new LinkedHashMap<>(sortParams);
+//
+//        for (Map.Entry<String, String> entry : orderedParams.entrySet()) {
+//            String field = entry.getKey();
+//            String direction = entry.getValue();
+//
+//            if (validFields.contains(field)) {
+//                if ("ASC".equalsIgnoreCase(direction)) {
+//                    orders.add(Sort.Order.asc(field));
+//                } else if ("DESC".equalsIgnoreCase(direction)) {
+//                    orders.add(Sort.Order.desc(field));
+//                }
+//            }
+//        }
+//
+//        Pageable pageable = orders.isEmpty()
+//                ? PageRequest.of(page, size)
+//                : PageRequest.of(page, size, Sort.by(orders));
+//
+//        return carRepository.findAll(pageable).get().collect(Collectors.toList());
+//    }
 
 
 }
