@@ -4,13 +4,23 @@ import com.techbuzzblogs.rest.producer.annotations.VerifyRoles;
 import com.techbuzzblogs.rest.producer.enums.UserRole;
 import com.techbuzzblogs.rest.producer.models.Car;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.techbuzzblogs.rest.producer.models.DTOs.CarDTO;
 import com.techbuzzblogs.rest.producer.repository.CarRepository;
 import com.techbuzzblogs.rest.producer.services.CarService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,10 +45,12 @@ public class CarController {
 
     public void seedMockData() {
 
-        carRepository.save(new Car(new CarDTO("a carName", "b carModel", "c company")));
-        carRepository.save(new Car(new CarDTO("c carName", "d carModel", "a company")));
-        carRepository.save(new Car(new CarDTO("x carName", "z carModel", "b company")));
-        carRepository.save(new Car(new CarDTO("m carName", "k carModel", "z company")));
+        if (carRepository.count() == 0) { // previne duplicação ao reiniciar
+            carRepository.save(new Car(new CarDTO("A", "Z", "Company1")));
+            carRepository.save(new Car(new CarDTO("A", "Y", "Company2")));
+            carRepository.save(new Car(new CarDTO("A", "X", "Company3")));
+            carRepository.save(new Car(new CarDTO("B", "K", "Company4")));
+        }
 
     }
 
@@ -51,5 +63,46 @@ public class CarController {
         return this.carService.create(body);
 //        return body;
     }
+
+    @GetMapping
+    @ResponseStatus(HttpStatus.OK)
+    public List<Car> listCarsDynamicSorting(
+            @RequestParam Map<String, String> sortParams,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        // Optional: só para testes
+        this.seedMockData();
+
+        List<Sort.Order> orders = new ArrayList<>();
+
+        // Campos válidos da entidade
+        Set<String> validFields = Arrays.stream(Car.class.getDeclaredFields())
+                .map(Field::getName)
+                .collect(Collectors.toSet());
+
+        // MANTÉM a ordem de inserção dos parâmetros
+        Map<String, String> orderedParams = new LinkedHashMap<>(sortParams);
+
+        for (Map.Entry<String, String> entry : orderedParams.entrySet()) {
+            String field = entry.getKey();
+            String direction = entry.getValue();
+
+            if (validFields.contains(field)) {
+                if ("ASC".equalsIgnoreCase(direction)) {
+                    orders.add(Sort.Order.asc(field));
+                } else if ("DESC".equalsIgnoreCase(direction)) {
+                    orders.add(Sort.Order.desc(field));
+                }
+            }
+        }
+
+        Pageable pageable = orders.isEmpty()
+                ? PageRequest.of(page, size)
+                : PageRequest.of(page, size, Sort.by(orders));
+
+        return carRepository.findAll(pageable).get().collect(Collectors.toList());
+    }
+
 
 }
